@@ -6,6 +6,7 @@ scalaVersion := "2.12.7"
 
 libraryDependencies ++= Seq(
   "org.typelevel" %% "spire" % "0.17.0",
+  "org.scalacheck" %% "scalacheck" % "1.15.0" % "test",
   "com.storm-enroute" %% "scalameter" % "0.19" % "test"
 )
 
