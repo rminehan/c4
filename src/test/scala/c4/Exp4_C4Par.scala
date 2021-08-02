@@ -2,7 +2,8 @@ package c4
 
 import org.scalameter.api._
 import PerformanceUtils._
-import C4ArrayPar.{C4ExecutionContext, Ops}
+import C4ArrayPar.Ops
+import C4ParUtils.C4ExecutionContext
 
 /** Measures the speed up by reimplementing map and filter using a parallelized cfor based implementation.
  * The main speed up is from parallelization by mapping and filtering big slices of the array.

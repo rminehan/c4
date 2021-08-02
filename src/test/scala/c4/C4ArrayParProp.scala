@@ -2,7 +2,8 @@ package c4
 
 import org.scalacheck.Properties
 import org.scalacheck.Prop.forAll
-import C4ArrayPar.{C4ExecutionContext, Ops}
+import C4ArrayPar.Ops
+import C4ParUtils.C4ExecutionContext
 
 class C4ArrayParProp extends Properties("C4ArrayPar.Ops") {
   implicit val ec: C4ExecutionContext = C4ExecutionContext(parallelism = 4)
