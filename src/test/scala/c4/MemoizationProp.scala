@@ -16,12 +16,20 @@ class MemoizationProp extends Properties("Memoization.Ops") {
     array.mapByKeyPar(i => i)(_ * 2).sameElements(array.map(_ * 2))
   }
 
+  property("mapByKeyConc == regular map") = forAll { array: Array[Int] =>
+    array.mapByKeyConc(i => i)(_ * 2).sameElements(array.map(_ * 2))
+  }
+
   property("filterByKey == regular filter") = forAll { array: Array[Int] =>
     array.filterByKey(i => i)(_ > 10).sameElements(array.filter(_ > 10))
   }
 
   property("filterByKeyPar == regular filter") = forAll { array: Array[Int] =>
     array.filterByKey(i => i)(_ > 10).sameElements(array.filter(_ > 10))
+  }
+
+  property("filterByKeyConc == regular filter") = forAll { array: Array[Int] =>
+    array.filterByKeyConc(i => i)(_ > 10).sameElements(array.filter(_ > 10))
   }
 
   property("mapByKey.filterByKey.mapByKey == regular map.filter.map") = forAll { array: Array[Int] =>
@@ -32,6 +40,12 @@ class MemoizationProp extends Properties("Memoization.Ops") {
 
   property("mapByKeyPar.filterByKeyPar.mapByKeyPar == regular map.filter.map") = forAll { array: Array[Int] =>
     array.mapByKeyPar(i => i)(_ * 5).filterByKeyPar(i => i)(_ > 10).mapByKeyPar(i => i)(_ / 2).sameElements(
+      array.map(_ * 5).filter(_ > 10).map(_ / 2)
+    )
+  }
+
+  property("mapByKeyConc.filterByKeyConc.mapByKeyConc == regular map.filter.map") = forAll { array: Array[Int] =>
+    array.mapByKeyConc(i => i)(_ * 5).filterByKeyConc(i => i)(_ > 10).mapByKeyConc(i => i)(_ / 2).sameElements(
       array.map(_ * 5).filter(_ > 10).map(_ / 2)
     )
   }
