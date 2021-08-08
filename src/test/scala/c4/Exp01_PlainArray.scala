@@ -11,7 +11,7 @@ import PerformanceUtils._
  * For example the map.filter.map.filter test is so that later you can
  * see the benefit of fusing stages to avoid intermediate collections.
  */
-class Exp1_PlainArray extends Bench.LocalTime {
+class Exp01_PlainArray extends Bench.LocalTime {
 
   performance of "Array" in {
 

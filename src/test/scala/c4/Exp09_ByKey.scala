@@ -14,7 +14,7 @@ import Memoization.Ops
  * The expectation is that the heavy factorial one should improve significantly
  * in comparison to Exp1
  */
-class Exp9_ByKey extends Bench.LocalTime {
+class Exp09_ByKey extends Bench.LocalTime {
 
   performance of "Array" in {
 

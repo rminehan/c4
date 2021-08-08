@@ -8,7 +8,7 @@ import C4Array.Ops
  * Really this test is showing the speed difference between iterating over an Array using an
  * iterator with .hasNext and .next vs a tight C style loop.
  */
-class Exp3_C4 extends Bench.LocalTime {
+class Exp03_C4 extends Bench.LocalTime {
 
   performance of "C4Array.Ops" in {
 

@@ -6,7 +6,7 @@ import PerformanceUtils._
 /** Measures the speed up of certain operations by just reordering combinators
  * or fusing steps using `collect`
  */
-class Exp2_ArrayTricks extends Bench.LocalTime {
+class Exp02_ArrayTricks extends Bench.LocalTime {
 
   performance of "Array" in {
 

@@ -9,7 +9,7 @@ import C4ParUtils.C4ExecutionContext
  * The main speed up is from parallelization by mapping and filtering big slices of the array.
  * Within those slices there is cfor loops which add a bit of extra value.
  */
-class Exp4_C4Par extends Bench.LocalTime {
+class Exp04_C4Par extends Bench.LocalTime {
 
   // TODO - tune this based on your machine
   implicit val ec: C4ExecutionContext = C4ExecutionContext(parallelism = 4)
