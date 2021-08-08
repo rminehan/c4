@@ -16,7 +16,7 @@ import Memoization.Ops
  */
 class Exp09_ByKey extends Bench.LocalTime {
 
-  performance of "Array" in {
+  performance of "*ByKey" in {
 
     measure method "map" in {
       using(arrays) in {
