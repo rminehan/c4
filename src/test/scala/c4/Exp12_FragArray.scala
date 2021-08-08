@@ -39,7 +39,8 @@ class Exp12_FragArray extends Bench.LocalTime {
       }
     }
 
-    // For comparison with below
+    // Compare a more suitable use case across a few variants
+
     measure method "(normal) filter.map.filter.filter.map" in {
       using(arrays) in {
         a => a
@@ -51,7 +52,30 @@ class Exp12_FragArray extends Bench.LocalTime {
       }
     }
 
-    // For comparison with above
+    measure method "(.par) filter.map.filter.filter.map" in {
+      using(arrays) in {
+        a => a
+          .par
+          .filter(_ > 10)
+          .map(_ * 2)
+          .filter(_ % 4 == 0)
+          .filter(_ % 3 == 0)
+          .map(_ / 2)
+      }
+    }
+
+    measure method "(C4Par) filter.map.filter.filter.map" in {
+      import c4.C4ArrayPar.Ops
+      using(arrays) in {
+        a => a
+          .filterC4Par(_ > 10)
+          .mapC4Par(_ * 2)
+          .filterC4Par(_ % 4 == 0)
+          .filterC4Par(_ % 3 == 0)
+          .mapC4Par(_ / 2)
+      }
+    }
+
     measure method "(frag) filter.map.filter.filter.map" in {
       using(arrays) in {
         a => a
