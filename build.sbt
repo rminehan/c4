@@ -11,10 +11,6 @@ libraryDependencies ++= Seq(
   "com.storm-enroute" %% "scalameter" % "0.19" % "test"
 )
 
-resolvers ++= Seq(
-  "Redshift" at "https://s3.amazonaws.com/redshift-maven-repository/release/"
-)
-
 // Related to scalameter - https://scalameter.github.io/home/gettingstarted/0.7/sbt/
 testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
 logBuffered := false
