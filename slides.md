@@ -68,14 +68,6 @@ array.map(_ * 2).filter(_ % 6 != 0)
 
 ---
 
-# And don't be a wet blanket
-
-> Premature optimization rah rah rah...
-
-This is more for fun and research
-
----
-
 # Benefits
 
 - learning about scalameter
@@ -88,6 +80,14 @@ This is more for fun and research
 
 
 - _maybe_ use some of this in our analytics
+
+---
+
+# And don't be a wet blanket
+
+> Premature optimization rah rah rah...
+
+This is more for fun and research
 
 ---
 
@@ -118,14 +118,6 @@ To the docs!
 
 
 - don't mix performance tests with regular tests
-
----
-
-# Setting up a test
-
-Define a kind of x-axis and y-axis and logic
-
-It runs the experiment many times printing the average
 
 ---
 
@@ -187,7 +179,9 @@ If it makes sense, extrapolate that performance improvement to prod
            |_|                                             
 ```
 
-13 experiments
+13 in total
+
+Just look at the more interesting ones
 
 ---
 
@@ -195,7 +189,7 @@ If it makes sense, extrapolate that performance improvement to prod
 
 > The approx time in ms doing something like:
 >
-> array.map(_ * 2).filter(_ > 6)  (some optimized version)
+> array.map(...).filter(...)  (some optimized version)
 >
 > for arrays of various sizes
 >
@@ -258,9 +252,7 @@ Quad core i7 (hyper threaded), 3.6GHz
 
 ---
 
-# x-axis
-
-Try arrays of size:
+# Array sizes
 
 - 250K
 
@@ -292,29 +284,27 @@ Try arrays of size:
 [info] Parameters(size -> 1000000): 91.005086 ms
 ```
 
-It's linear going through the origina
+It's linear going through the origin
 
 We can characterize it with a single value
 
 ---
 
-# Presenting the results
+# Many experiments
 
-Will use the value for 1M (91 in this case)
+Will use the value for 1M for:
+
+```scala
+array.map(_ * 2).filter(_ % 6 != 0)
+```
 
 ---
 
 # Time constraints
 
-Not enough time to go into details for each experiment
+Not enough time to go through all experiments
 
-Give the conceptual gist of how the optimization works
-
----
-
-# Standard benchmark
-
-Remember that 91ms is our "standard"
+Just hand picked the more interesting ones
 
 ---
 
@@ -418,6 +408,12 @@ array.collect {
   case i if i % 3 != 0 => i * 2
 }
 ```
+
+---
+
+# Exp02
+
+Run it!
 
 ---
 
@@ -533,7 +529,7 @@ Allocate empty array of the same size
 [ 64, 40, ...         198, 22, ...    146, 88, ...   ]
 ```
 
-Wait for all to finish
+(Make sure to partition evenly)
 
 ---
 
@@ -642,6 +638,8 @@ array.fuse.map(_ * 2).filter(_ % 6 != 0).boom
 
 # Horizontal instead of vertical
 
+Element by element
+
 ```
     _ * 2 then _ % 6 != 0           buffer
 
@@ -683,37 +681,7 @@ case class Fuse[A, B: ClassTag](array: Array[A], transform: A => Option[B]) {
 
 # Results
 
-```
-------------------------------------------------------
-| Exp | Description       | doorstop | beast | robox |
-------------------------------------------------------
-| 1   | stdlib            | 91       | 60    | 42    |
-------------------------------------------------------
-| 2   | collect           | 41       | 19    | 16    |
-------------------------------------------------------
-| 5   | fuse              | 66       | 55    | 48    |
-------------------------------------------------------
-```
-
----
-
-# Exp06
-
-Same as above but in parallel
-
-```
-    _ * 2 then _ % 6 != 0           buffer         array
-
-------------------------------------------
-33         --->     Some(66)        66             66
-3          --->     Some(6)         6              6
-10         --->     None                           24
-------------------------------------------
-25         --->     None            24
-5          --->     None
-12         --->     Some(24)
-------------------------------------------
-```
+Run it for fun!
 
 ---
 
@@ -729,8 +697,6 @@ Same as above but in parallel
 ------------------------------------------------------
 | 5   | fuse              | 66       | 55    | 48    |
 ------------------------------------------------------
-| 6   | fuse par (4)      | 24       | 15    | 21    |
-------------------------------------------------------
 ```
 
 ---
@@ -739,54 +705,7 @@ Same as above but in parallel
 
 `ShortFuse`
 
-Variant on `Fuse` intended to make it a bit faster
-
-```
-    _ * 2 then _ % 6 != 0           buffer         array
-
-------------------------------------------
-33         --->     Some(66)        66             66
-3          --->     Some(6)         6              6
-10         --->     None                           24
-------------------------------------------
-25         --->     None            24
-5          --->     None
-12         --->     Some(24)
-------------------------------------------
-```
-
----
-
-# Problem with `Fuse`
-
-The pipeline has to support the concepts of:
-
-- transforming elements (`map`)
-
-
-- dropping elements (`filter`)
-
----
-
-# Generalized form
-
-A pipeline is `A => Option[B]` where we keep `Some(b)` values
-
-```scala
-case class Fuse[A, B: ClassTag](array: Array[A], transform: A => Option[B]) {
-
-  def map[C: ClassTag](f: B => C): Fuse[A, C] = Fuse(array, (a: A) => transform(a).map(f))
-
-  def filter(pred: B => Boolean): Fuse[A, B] = Fuse(array, (a: A) => transform(a).filter(pred))
-  ...
-}
-
-// Kick start with Some - lift values into Option effect
-implicit class Ops[A: ClassTag](array: Array[A]) {
-  def fuse: Fuse[A, A] = Fuse(array, a => Some(a))
-}
-```
-
+Variant on `Fuse` intended to short circuit out
 
 ---
 
@@ -805,19 +724,9 @@ array.fuse.filter(_ > 50).map(_ * 2).filter(_ % 6 != 0).map(_ * 3).filter(_ > 30
 
 Each extra step is a `map` or `filter` on the `None`
 
-```scala
-case class Fuse[A, B: ClassTag](array: Array[A], transform: A => Option[B]) {
-
-  def map[C: ClassTag](f: B => C): Fuse[A, C] = Fuse(array, (a: A) => transform(a).map(f))
-
-  def filter(pred: B => Boolean): Fuse[A, B] = Fuse(array, (a: A) => transform(a).filter(pred))
-  ...
-}
-```
-
 ---
 
-# Function wrapping
+# `Fuse`
 
 Can't bail out because the steps are glued together with composition:
 
@@ -869,24 +778,19 @@ Used to vector to make it fast to append new transforms
 
 # Results
 
-Initially it was _really_ slow
-
-Had a loop like:
-
-```scala
-var current: Option[Any] = Some(array(i))
-
-var remainingTransforms = transforms
-
-while (current != None && remainingTransforms.nonEmpty) {
-  val transform = remainingTransforms.head
-  current = transform(current)
-  remainingTransforms = remainingTransforms.tail
-}
-
-
-class ShortFuse[A, B: ClassTag] private(array: Array[A], transforms: Vector[Any => Option[Any]])
 ```
+------------------------------------------------------
+| Exp | Description       | doorstop | beast | robox |
+------------------------------------------------------
+| 1   | stdlib            | 91       | 60    | 42    |
+------------------------------------------------------
+| 5   | fuse              | 66       | 55    | 48    |
+------------------------------------------------------
+| 7   | shortfuse         | 64       | 56    | 51    |
+------------------------------------------------------
+```
+
+No real speed improvement
 
 ---
 
@@ -898,31 +802,7 @@ class ShortFuse[A, B: ClassTag] private(array: Array[A], transforms: Vector[Any 
 - more confusing and dirty
 
 
-- way slower
-
----
-
-# Problem
-
-The way I was using vector
-
----
-
-# Solution
-
-Convert the vector of transformations into an array once at the start
-
-Use a tight `cfor` loop
-
-```scala
-val transformsArray = transforms.toArray
-
-var current: Option[Any] = Some(array(i))
-
-cfor(0)(_ < transformsArray.length && !current.isEmpty, _ + 1) { t =>
-  current = transformsArray(t).apply(current.get)
-}
-```
+- no significant speedup
 
 ---
 
@@ -943,71 +823,6 @@ Ended up being about the same anyway
 ```
 
 So just use the simpler typesafe `Fuse`
-
----
-
-# Aside
-
-`Fuse` would let us "recover" at an element level
-
-```scala
-array.fuse.filter(_ > 2).map(_ * 3).filter(_ > 100).recover(50).boom
-```
-
-```
-in      fuse        > 2       * 3             > 100           recover(50)   out
-1  --> Some(1)  --> None     --> None      --> None       -->  Some(50)      50
-30 --> Some(30) --> Some(30) --> Some(90)  --> None       -->  Some(50)      50
-40 --> Some(40) --> Some(40) --> Some(120) --> Some(120)  -->  Some(120)a   120
-```
-
-`ShortFuse` wouldn't allow this
-
----
-
-# Option equivalent
-
-Cleaner than using options
-
-```scala
-array.fuse.filter(_ > 2).map(_ * 3).filter(_ > 100).recover(50).boom
-
-// Using Option
-array
-  .map(Some(_))   // Array[Option[Int]]
-  .map(_.filter(_ > 2))
-  .map(_.map(_ * 3))
-  .map(_.filter(_ > 100))
-  .map(_.getOrElse(50))
-```
-
-Can't do this with regular combinators as they shrink along the way
-
----
-
-# Exp08
-
-`ShortFusePar`
-
-Just parallelized version of above
-
-```
-------------------------------------------------------
-| Exp | Description       | doorstop | beast | robox |
-------------------------------------------------------
-| 1   | stdlib            | 91       | 60    | 42    |
-------------------------------------------------------
-| 5   | fuse              | 66       | 55    | 48    |
-------------------------------------------------------
-| 6   | fuse par (4)      | 24       | 15    | 21    |
-------------------------------------------------------
-| 7   | shortfuse         | 64       | 56    | 51    |
-------------------------------------------------------
-| 8   | shortfuse par (4) | 23       | 14    | 20    |
-------------------------------------------------------
-```
-
-Basically the same as parallelized `Fuse`
 
 ---
 
@@ -1194,6 +1009,26 @@ Bigger speed up on the beast
 
 ---
 
+# Interesting scenario
+
+Caches will fill up quickly at the start
+
+Then are mostly just read
+
+---
+
+# Idea
+
+Process the first say 500 elements in series to build the cache
+
+Then parallelize as usual with a simple fast read-only cache
+
+Elements that missed that cache window suck it up and get recomputed
+
+(Haven't done this)
+
+---
+
 # Exp11
 
 Like Exp10 but use a single cache with fine grained locking
@@ -1205,6 +1040,10 @@ Like Exp10 but use a single cache with fine grained locking
 Java has this:
 
 `java.util.concurrent.ConcurrentHashMap`
+
+Hash map divided into 16 buckets, each with individual locks
+
+See "lock striping"
 
 ---
 
@@ -1239,6 +1078,12 @@ A bit suspicious...
 
 # Exp12
 
+Pesky filtering
+
+---
+
+# Problem
+
 When filtering arrays, you don't know how big it will be
 
 Can't preallocate space and fill directly into it
@@ -1267,7 +1112,7 @@ Leads to an annoying extra pass over the data
 
 # filter.map
 
-Often followed by a map anyway
+Often followed by a `map` or `.toList` anyway
 
 ---
 
@@ -1275,15 +1120,21 @@ Often followed by a map anyway
 
 After filtering, don't recombine the fragments
 
-Leave that to a subsequent map call or `.toArray`
+Leave that to a subsequent `map` call or `.toList`
 
 ie. don't do it if you don't need to
 
 ---
 
-# FragArray
+# Preallocate
 
 When filtering, preallocate an array the same size as the original
+
+Fill into it leaving "gaps"
+
+---
+
+# Example
 
 ```
       filter                map
@@ -1292,8 +1143,8 @@ When filtering, preallocate an array the same size as the original
 34              34          68
 2               10          20
 10             <dead>      ----
-----------------------      10
-1               10          40
+----------------------      20
+1               10          80
 10              40         ----
 40             <dead>      
 ----------------------     
@@ -1303,6 +1154,10 @@ When filtering, preallocate an array the same size as the original
 ```
 
 The `map` step defrags it as it knows the length ahead of time 
+
+---
+
+# `FragArray`
 
 ```scala
 class FragArray[A](array: Array[A], partitions: List[(Int, Int)])
@@ -1314,15 +1169,41 @@ class FragArray[A](array: Array[A], partitions: List[(Int, Int)])
 
 Dead space is wasted
 
-Works better when the predicate is mostly truth-y (which happens a lot)
+Good for very "truth-y" predicates:
+
+- space isn't much
+
+
+- an extra pass over the data is expensive
+
+Bad for "false-y" predicates
+
+---
+
+# Truth-y predicates
+
+Happens a lot removing quirky edge cases from data pipelines
+
+```scala
+data
+  .filterNot(person => person.country == "Albania" &&           // Some bug in that data
+             person.signup.between("2019-06-01", "2019-06-03"))
+  .map(...) // Regular processing
+```
+
+Probably 99.99% of data survives filter
 
 ---
 
 # Api
 
 ```scala
-array.filterFrag(_ > 10).map(_ * 2).filterFrag(_ % 4 == 0).toArray
-//    FragArray[Int]     Array[Int] FragArray[Int]         Array[Int]
+array
+  .filterFrag(_ > 10)     // FragArray[Int]
+  .map(_ * 2)             // Array[Int]
+  .filterFrag(_ % 4 == 0) // FragArray[Int]
+  .filter(_ < 4)          // FragArray[Int] - reuses partitions
+  .toArray                // Array[Int]
 ```
 
 ---
@@ -1403,6 +1284,12 @@ The built in parallel collections library
 array.par.map(_ * 2).filter(_ % 6 != 0)
 //    ^^^
 ```
+
+---
+
+# Results
+
+Run it for fun!
 
 ---
 
@@ -1675,65 +1562,6 @@ we're running big single threaded procedural jobs
 Nothing else going on the JVM
 
 So as long as there's enough memory, it's okay to be a hog
-
----
-
-# Dirty tricks hidden away
-
-The optimizations I came up use dirty tricks but they're hidden under a functional layer
-
-e.g. didn't mutate arrays in place
-
----
-
-# ArraySeq
-
-Scala's equivalent of Array
-
-Has mutable and immutable forms
-
-Just wraps around an array
-
-Could have used the same tricks on this structure
-
----
-
-# Many tricks
-
-Each experiment generally exploited one trick
-
-- parallelizing
-
-
-- removing intermediate collections
-
-
-- caching (speed up depends)
-
-
-- cfor based iteration
-
----
-
-# Combine them?
-
-Would be nice to have an array api that lets you combine the different orthogonal concepts
-
-For both `Array` and `ArraySeq`
-
----
-
-# My fear
-
-> Would be nice to have an array api that lets you combine the different orthogonal concepts
-
-Would become overly abstracted and convoluted like the scala collections library
-
----
-
-# Abstraction vs Performance
-
-Also abstraction can lead to performance issues creeping back in
 
 ---
 
