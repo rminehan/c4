@@ -451,6 +451,62 @@ Let's try a more direct for-loop style approach
 
 ---
 
+# cfor
+
+Macro based loop from spire
+
+```scala
+cfor(0)(_ < 10, _ + 1) { i =>
+  // Do something with i
+  ...
+}
+```
+
+analogous to:
+
+```c
+for (int i = 0; i < 10; ++i) {
+  // Do something with i
+  ...
+}
+```
+
+---
+
+# Peeking under the hood
+
+```scala
+
+cfor(0)(_ < 10, _ + 1) { i =>
+  // Do something with i
+  ...
+}
+
+def cforMacro[A](c: Context)(init: c.Expr[A])(...): c.Expr[Unit] = {
+  ...
+
+  val tree = if (util.isClean(test, next, body)) {
+    q"""
+    var $index = $init
+    while ($test($index)) {
+      $body($index)
+      $index = $next($index)
+    }
+    """
+
+  } else {
+    ...
+  }
+
+  // Inline anonymous functions
+  new InlineUtil[c.type](c).inlineAndReset[Unit](tree)
+}
+```
+
+Does a lot of inlining
+
+---
+
 # Loop based
 
 ```scala
