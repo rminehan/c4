@@ -20,6 +20,10 @@ class MemoizationProp extends Properties("Memoization.Ops") {
     array.mapByKeyConc(i => i)(_ * 2).sameElements(array.map(_ * 2))
   }
 
+  property("mapByKeyWithWarmup == regular map") = forAll { array: Array[Int] =>
+    array.mapByKeyWithWarmup(warmup = 20)(i => i)(_ * 2).sameElements(array.map(_ * 2))
+  }
+
   property("filterByKey == regular filter") = forAll { array: Array[Int] =>
     array.filterByKey(i => i)(_ > 10).sameElements(array.filter(_ > 10))
   }
@@ -30,6 +34,11 @@ class MemoizationProp extends Properties("Memoization.Ops") {
 
   property("filterByKeyConc == regular filter") = forAll { array: Array[Int] =>
     array.filterByKeyConc(i => i)(_ > 10).sameElements(array.filter(_ > 10))
+  }
+
+  property("filterByKeyWithWarmup == regular filter") = forAll { array: Array[Int] =>
+    val warmup = math.min(500, array.length)
+    array.filterByKeyWithWarmup(warmup)(i => i)(_ > 10).sameElements(array.filter(_ > 10))
   }
 
   property("mapByKey.filterByKey.mapByKey == regular map.filter.map") = forAll { array: Array[Int] =>
@@ -49,4 +58,17 @@ class MemoizationProp extends Properties("Memoization.Ops") {
       array.map(_ * 5).filter(_ > 10).map(_ / 2)
     )
   }
+
+  property("mapByKeyWithWarmup.filterByKeyWithWarmup.mapByKeyWithWarmup == regular map.filter.map") = forAll { array: Array[Int] =>
+    val warmup = 10
+    array
+      .mapByKeyWithWarmup(warmup)(i => i)(_ * 5)
+      .filterByKeyWithWarmup(warmup)(i => i)(_ > 10)
+      .mapByKeyWithWarmup(warmup)(i => i)(_ / 2)
+      .sameElements(
+        array.map(_ * 5).filter(_ > 10).map(_ / 2)
+      )
+  }
+
+  // TODO - add tests where the key logic is more complex than `i => i`
 }

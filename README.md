@@ -100,6 +100,8 @@ Below are time times in milliseconds on each machine for the above with an array
 ------------------------------------------------------
 | 13  | stdlib .par       | 22       | 9     | 10    |
 ------------------------------------------------------
+| 14  | ByKeyWarmup (4)   | 24       | TODO  | 25    |
+------------------------------------------------------
 ```
 
 # Notes
