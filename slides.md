@@ -638,17 +638,11 @@ array.fuse.map(_ * 2).filter(_ % 6 != 0).boom
 
 # Horizontal instead of vertical
 
-Element by element
-
 ```
-    _ * 2 then _ % 6 != 0           buffer
-
-33         --->     Some(66)        66
-3          --->     Some(6)         6
-10         --->     None            24
-25         --->     None
-5          --->     None
-12         --->     Some(24)
+        fuse         map(_ * 2)    filter(_ % 6 != 0)      buffer     array
+40 --> Some(40)  -->  Some(80)  -->     Some(80)            80         80
+15 --> Some(15)  -->  Some(30)  -->     None                40         40
+20 --> Some(20)  -->  Some(40)  -->     Some(40)
 ```
 
 ---
@@ -720,6 +714,8 @@ array.fuse.filter(_ > 50).map(_ * 2).filter(_ % 6 != 0).map(_ * 3).filter(_ > 30
 ```
         fuse         filter(_ > 50)    map(_ * 2)   filter(_ % 6 != 0)  map(_ * 3)  filter(_ > 300)
 40 --> Some(40)  -->     None     -->    None    -->      None    -->     None   -->    None
+
+                       bail out?
 ```
 
 Each extra step is a `map` or `filter` on the `None`
@@ -746,9 +742,11 @@ The function is a black box
 
 # Idea
 
-Separate the individual steps into a more explicit collection of functions we iterate through manually
+Separate the individual steps into a more explicit collection of functions
 
-Then we can bail out when our data becomes `None`
+Iterate through them with a `cfor` loop
+
+Bail out when our data becomes `None`
 
 ---
 
@@ -757,22 +755,10 @@ Then we can bail out when our data becomes `None`
 Have to throw away type information internally
 
 ```scala
-case class Fuse[A, B](array: Array[A], transform: ??? => Option[???]) {
+case class ShortFuse[A, B](array: Array[A], transforms: Vector[Any => Option[Any]])
 ```
 
 Internally we throw away the types, but our builder methods make sure everything is typesafe
-
----
-
-# `ShortFuse`
-
-```scala
-class ShortFuse[A, B: ClassTag] private(array: Array[A], transforms: Vector[Any => Option[Any]]) {
-  ...
-}
-```
-
-Used to vector to make it fast to append new transforms
 
 ---
 
@@ -790,11 +776,11 @@ Used to vector to make it fast to append new transforms
 ------------------------------------------------------
 ```
 
-No real speed improvement
+No real speed improvement for our case
 
 ---
 
-# Classic bad optimization
+# Summary of Exp08
 
 - less type safe
 
@@ -802,33 +788,17 @@ No real speed improvement
 - more confusing and dirty
 
 
-- no significant speedup
-
----
-
-# Results
-
-Ended up being about the same anyway
-
-```
-------------------------------------------------------
-| Exp | Description       | doorstop | beast | robox |
-------------------------------------------------------
-| 1   | stdlib            | 91       | 60    | 42    |
-------------------------------------------------------
-| 5   | fuse              | 66       | 55    | 48    |
-------------------------------------------------------
-| 7   | shortfuse         | 64       | 56    | 51    |
-------------------------------------------------------
-```
-
-So just use the simpler typesafe `Fuse`
+- no significant speedup for our map.filter case
 
 ---
 
 # Exp09
 
-Idea: cache the results from mapping and filtering within a stage
+Caching within a stage
+
+---
+
+# Caching
 
 ```
           _ * 2        _ % 6 != 0
@@ -1009,272 +979,33 @@ Bigger speed up on the beast
 
 ---
 
-# Interesting scenario
+# Alternatives I tried
 
-Caches will fill up quickly at the start
+## Lock-striping
 
-Then are mostly just read
+Exp11
 
----
+One cache with fine grained locking
 
-# Idea
+## Two phase approach
 
-Process the first say 500 elements in series to build the cache
+Exp14
 
-Then parallelize as usual with a simple fast read-only cache
+Build a cache across first 500 elements
 
-Elements that missed that cache window suck it up and get recomputed
-
-(Haven't done this)
-
----
-
-# Exp11
-
-Like Exp10 but use a single cache with fine grained locking
-
----
-
-# ConcurrentHashMap
-
-Java has this:
-
-`java.util.concurrent.ConcurrentHashMap`
-
-Hash map divided into 16 buckets, each with individual locks
-
-See "lock striping"
-
----
-
-# Benefits
-
-One cache:
-
-- value only computed once
-
-
-- one cache (less memory)
-
----
-
-# Results
-
-```
-------------------------------------------------------
-| Exp | Description       | doorstop | beast | robox |
-------------------------------------------------------
-| 10  | ByKey par (4)     | 39       | 21    | 26    |
-------------------------------------------------------
-| 11  | ByKeyConc par (4) | 35       | 66    | 47    |
-------------------------------------------------------
-```
-
-Faster on doorstop but slower on beast
-
-A bit suspicious...
+Then switch to parallel processing with read-only cache
 
 ---
 
 # Exp12
 
-Pesky filtering
+`FragArray`
 
----
-
-# Problem
-
-When filtering arrays, you don't know how big it will be
-
-Can't preallocate space and fill directly into it
-
----
-
-# Buffers
-
-> Can't preallocate space and fill directly into it
-
-Buffer up results as they come in
-
-Build an array when you know the size and fill it
-
----
-
-# Second pass
-
-> Buffer up results as they come in
->
-> Build an array when you know the size and fill it
-
-Leads to an annoying extra pass over the data
-
----
-
-# filter.map
-
-Often followed by a `map` or `.toList` anyway
-
----
-
-# Idea
-
-After filtering, don't recombine the fragments
-
-Leave that to a subsequent `map` call or `.toList`
-
-ie. don't do it if you don't need to
-
----
-
-# Preallocate
-
-When filtering, preallocate an array the same size as the original
-
-Fill into it leaving "gaps"
-
----
-
-# Example
-
-```
-      filter                map
-      _ > 3                _ * 2
-----------------------     ----
-34              34          68
-2               10          20
-10             <dead>      ----
-----------------------      20
-1               10          80
-10              40         ----
-40             <dead>      
-----------------------     
-             partitions:
-                (0, 2)
-                (3, 5)
-```
-
-The `map` step defrags it as it knows the length ahead of time 
-
----
-
-# `FragArray`
-
-```scala
-class FragArray[A](array: Array[A], partitions: List[(Int, Int)])
-```
-
----
-
-# Waste
-
-Dead space is wasted
-
-Good for very "truth-y" predicates:
-
-- space isn't much
-
-
-- an extra pass over the data is expensive
-
-Bad for "false-y" predicates
-
----
-
-# Truth-y predicates
-
-Happens a lot removing quirky edge cases from data pipelines
-
-```scala
-data
-  .filterNot(person => person.country == "Albania" &&           // Some bug in that data
-             person.signup.between("2019-06-01", "2019-06-03"))
-  .map(...) // Regular processing
-```
-
-Probably 99.99% of data survives filter
-
----
-
-# Api
-
-```scala
-array
-  .filterFrag(_ > 10)     // FragArray[Int]
-  .map(_ * 2)             // Array[Int]
-  .filterFrag(_ % 4 == 0) // FragArray[Int]
-  .filter(_ < 4)          // FragArray[Int] - reuses partitions
-  .toArray                // Array[Int]
-```
-
----
-
-# Our example
-
-```scala
-array.map(_ * 2).filter(_ % 6 != 0)
-
-// Using FragArray
-array.map(_ * 2).filterFrag(_ % 6 != 0).toArray
-```
-
-No benefit in this case as the filter is at the end
-
----
-
-# Results
-
-```
-------------------------------------------------------
-| Exp | Description       | doorstop | beast | robox |
-------------------------------------------------------
-| 1   | stdlib            | 91       | 60    | 42    |
-------------------------------------------------------
-| 4   | cfor par (4)      | 22       | 14    | 19    |
-------------------------------------------------------
-| 12  | FragArray par (4) | 28       | 20    | 17    |
-------------------------------------------------------
-| 13  | stdlib .par       | 22       | 9     | 10    |
-------------------------------------------------------
-```
-
-Does help much
-
----
-
-# Results
-
-Better use case:
-
-```scala
-array
-  .filter(_ > 10)
-  .map(_ * 2)
-  .filter(_ % 4 == 0)
-  .filter(_ % 3 == 0)
-  .map(_ / 2)
-```
-
-Results:
-
-```
---------------------------------------
-| Exp | Description       | doorstop |
---------------------------------------
-| 1   | stdlib            | 92       |
---------------------------------------
-| 4   | cfor par (4)      | 22       |
---------------------------------------
-| 12  | FragArray par (4) | 19       |
---------------------------------------
-| 13  | stdlib .par       | 28       |
---------------------------------------
-```
+No time to talk about it though :sad-parrot:
 
 ---
 
 # Exp13
-
-Lucky last 13
 
 The built in parallel collections library
 
@@ -1430,13 +1161,13 @@ But it's not open-closed
 Be careful how you describe a speed up:
 
 ```
-------------------------------------------------------
-| Exp | Description       | doorstop | beast | robox |
-------------------------------------------------------
-| 1   | stdlib            | 91       | 60    |       |
-------------------------------------------------------
-| 3   | cfor loop         | 61       | 53    |       |
-------------------------------------------------------
+--------------------------------------
+| Exp | Description       | doorstop |
+--------------------------------------
+| 1   | stdlib            | 91       |
+--------------------------------------
+| 3   | cfor loop         | 61       |
+--------------------------------------
 ```
 
 Absolute terms: 30ms per 1M
@@ -1467,26 +1198,53 @@ Relative terms: 2579/2554 ~ 1
 
 ---
 
-# Nature of the speedup
+# My fear
 
-Speeding up the iteration machinery
+> Dev1: Using cfor gives a 1.5x speedup for array iteration
+>
+> Dev2: Ooooooh!
 
-Has nothing to do with the map/filter work being done at each step
+---
 
-Better to describe that speed up in length based absolute terms
+# How I'd express it
+
+> Using a cfor loop reduces time by Xms per 1M elements in the array (for some X)
+
+---
+
+# Parallelism
+
+```
+-----------------------------------
+| Exp | Description       | beast |
+-----------------------------------
+| 4   | cfor par (8)      |  8    |
+|     | cfor par (4)      | 14    |
+|     | cfor par (2)      | 27    |
+-----------------------------------
+```
+
+Here it makes sense to talk about in relative terms:
+
+> Parallelizing with p workers increases performance p times (maxing out at some value)
 
 ---
 
 # Mixing optimizations
 
-Something takes 100ms
+Often when you're trying to speed things, you're trying different tricks
+
+---
+
+# Order
+
+Suppose something takes 100ms
 
 You find two optimizations
 
 A - speeds it up by 4x (parallelism)
 
 B - speeds it up by 10ms (e.g. cfor)
-
 
 ---
 
@@ -1510,13 +1268,27 @@ _Perceived_ improvement:
 
 ---
 
-# My point
+# First looks best
 
-We're often trying to find optimizations that give good bang for buck
+Usually the optimization you apply first looks like it has the most effect
 
-Thats harder to assess when you mix them together
+---
 
-The order you apply them influences the perceived speed up each one gives you
+# Bang for buck
+
+We like simple optimizations that give big speedups
+
+The order you mix them will skew your perspective
+
+---
+
+# Test individually
+
+Look at each in isolation
+
+Understand the nature of each (absolute vs relative)
+
+Understand how they would interract
 
 ---
 
@@ -1547,21 +1319,7 @@ I noticed:
 
 They don't focus on memory
 
-In a real concurrent application, being a memory hog affects performance of other parts of the system
-
-Our tests don't measure/punish that though
-
----
-
-# Sharing our toys
-
-In the context of the analytics team,
-
-we're running big single threaded procedural jobs
-
-Nothing else going on the JVM
-
-So as long as there's enough memory, it's okay to be a hog
+A very memory intensive optimization might give a big speedup but might not be practical
 
 ---
 
