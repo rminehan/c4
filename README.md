@@ -14,7 +14,9 @@ myBigArray.map(_ * 2).filter(_ % 6 != 0)
 
 # Presentation
 
-Results were presented to the LeadIQ team as an internal presentation on Aug 12th 2021 (TODO - post link).
+Results were presented to the LeadIQ team as an internal
+[presentation](https://zoom.us/rec/share/9-TKI9N_ywb07wA9tFdCQmUANmVVCXnLjtqBluNE8SUdieF1_PvGNgWbJFBKB-Vq.ojQXsb2DWS-RaMKr)
+(`8S9ys%q@`) on Aug 12th 2021.
 
 See [slides](slides.md) for more details.
 
